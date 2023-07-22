@@ -1,0 +1,124 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GREETING: Hello, World!
+  DIRECTORY: integration
+  DRIVER: molecule_hetznercloud
+
+################################################################################
+# Tasks
+################################################################################
+# Note: In this section are just tasks how call tasks, called main tasks
+################################################################################
+
+tasks:
+  default:
+    deps:
+      - main:tests
+  main:lint:
+    deps:
+      - md:lint
+      - python:format
+      - python:lint
+  main:tests:
+    deps:
+      - main:lint
+      - python:pytest
+
+  ################################################################################
+  # Markdown
+  ################################################################################
+
+  md:lint:
+    desc: Lint Markdown files
+    deps:
+      - task: poetry:install-dependencies
+    cmds:
+      - poetry run pymarkdownlnt --disable-rules MD013 scan .
+
+  ################################################################################
+  # Python
+  ################################################################################
+
+  py:install-dependencies:
+    run: once
+    desc: Install dependencies managed by pip
+    cmds:
+      - pip3 install --upgrade poetry
+
+  python:lint:
+    desc: Lint Python code
+    deps:
+      - task: poetry:install-dependencies
+    cmds:
+      - poetry run flake8 --ignore=E501,W503 --show-source **/*.py
+
+  python:format:
+    desc: Format Python files
+    deps:
+      - task: poetry:install-dependencies
+    cmds:
+      - poetry run black **/*.py
+
+  python:pytest:
+    desc: Run pytest tests
+    env:
+      ANSIBLE_CALLABLE_WHITELIST:
+        { env:ANSIBLE_CALLABLE_WHITELIST:timer, profile_roles }
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTEST_ADDOPTS: molecule_hetznercloud/test/unit/ --cov=./molecule_hetznercloud/ --no-cov-on-fail
+    cmds:
+      - poetry run pytest
+
+  python:build:
+    desc: Build python package
+    cmds:
+      - poetry build
+
+  python:upload:
+    desc: Upload python package to them to https://pypi.org
+    cmds:
+      - poetry publish
+
+  ################################################################################
+  # Molecule
+  ################################################################################
+
+  molecule:create_role:
+    desc: create new role
+    cmds:
+      - poetry run molecule init role -d "{{.DRIVER}}" "{{.DIRECTORY}}"
+
+  molecule:test_role:
+    desc: run the molecule test for the new role
+    dir: "{{.DIRECTORY}}"
+    cmds:
+      - poetry run molecule test
+
+  ################################################################################
+  # Poetry
+  ################################################################################
+
+  poetry:install-dependencies:
+    run: once
+    desc: Install dependencies managed by Poetry
+    deps:
+      - task: py:install-dependencies
+    cmds:
+      - poetry install
+
+  poetry:update-dependencies:
+    desc: Update all dependencies managed by Poetry to their newest versions
+    cmds:
+      - poetry update
+
+  ################################################################################
+  # Other
+  ################################################################################
+  cleanup:
+    desc: cleanup any leftovers
+    cmds:
+      - rm -rf "dist"
+      - rm -rf "{{.DIRECTORY}}"
