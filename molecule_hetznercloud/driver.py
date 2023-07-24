@@ -11,7 +11,7 @@ log = logger.get_logger(__name__)
 class HetznerCloud(Driver):
     def __init__(self, config=None):
         super(HetznerCloud, self).__init__(config)
-        self._name = "hetznercloud"
+        self._name = "molecule_hetznercloud"
 
     @property
     def name(self):
